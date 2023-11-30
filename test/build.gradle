@@ -1,0 +1,24 @@
+plugins {
+    id 'dev.lukebemish.flix'
+    id 'maven-publish'
+}
+
+group='dev.lukebemish.flix'
+version='1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'dev.flix:flix:0.42.0'
+    flix 'io.github.flix:museum:1.4.0'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
