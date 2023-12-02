@@ -1,4 +1,4 @@
-package dev.lukebemish.flix;
+package dev.lukebemish.flix.gradle;
 
 public class Util {
     public static String wordsToCamelCase(String input) {

@@ -1,12 +1,14 @@
-package dev.lukebemish.flix;
+package dev.lukebemish.flix.gradle;
 
-import dev.lukebemish.flix.task.FlixCompile;
-import dev.lukebemish.flix.task.Fpkg;
+import dev.lukebemish.flix.gradle.task.FlixToml;
+import dev.lukebemish.flix.gradle.task.Fpkg;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.artifacts.repositories.IvyArtifactRepository;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.attributes.Bundling;
@@ -16,7 +18,7 @@ import org.gradle.api.attributes.Usage;
 import org.gradle.api.attributes.java.TargetJvmEnvironment;
 import org.gradle.api.attributes.java.TargetJvmVersion;
 import org.gradle.api.component.AdhocComponentWithVariants;
-import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.component.SoftwareComponentFactory;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.BasePluginExtension;
@@ -27,6 +29,10 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.jetbrains.annotations.NotNull;
 
+import javax.inject.Inject;
+import java.util.Set;
+import java.util.stream.Stream;
+
 @SuppressWarnings("UnstableApiUsage")
 public class FlixGradlePlugin implements Plugin<Project> {
     private ObjectFactory objectFactory;
@@ -34,13 +40,20 @@ public class FlixGradlePlugin implements Plugin<Project> {
     public static final String FPKG_ELEMENT = "fpkg";
     public static final String FLIX_CLASSES_ELEMENT = "flix-classes";
 
+    private final SoftwareComponentFactory softwareComponentFactory;
+
+    @Inject
+    public FlixGradlePlugin(SoftwareComponentFactory softwareComponentFactory) {
+        this.softwareComponentFactory = softwareComponentFactory;
+    }
+
     @Override
     public void apply(@NotNull Project project) {
         this.objectFactory = project.getObjects();
+        project.getPluginManager().apply(JavaPlugin.class);
+        var flixExtension = project.getExtensions().create("flix", FlixGradleExtension.class, project);
 
         Provider<RepositoryLayer> repositoryLayer = project.getGradle().getSharedServices().registerIfAbsent("flixRepositoryLayer", RepositoryLayer.class, spec -> {});
-
-        project.getPlugins().apply(JavaPlugin.class);
 
         project.getRepositories().ivy(ivy -> {
             ivy.setUrl("https://github.com/flix/flix/releases/download/");
@@ -65,7 +78,7 @@ public class FlixGradlePlugin implements Plugin<Project> {
             maven.metadataSources(MavenArtifactRepository.MetadataSources::gradleMetadata);
             maven.setAllowInsecureProtocol(true);
             maven.content(content -> {
-                content.includeGroupAndSubgroups("io.github");
+                content.includeGroupByRegex("github/.*");
             });
         });
 
@@ -101,22 +114,12 @@ public class FlixGradlePlugin implements Plugin<Project> {
                 );
             });
 
+            var flix = configurations.maybeCreate(sourcedNameOf(sourceSet, "flix"));
+
             flixClasspath.extendsFrom(configurations.getByName(sourceSet.getCompileClasspathConfigurationName()));
-            flixClasspath.extendsFrom(configurations.maybeCreate(sourcedNameOf(sourceSet, "flix")));
+            flixClasspath.extendsFrom(flix);
             flixClasspath.setCanBeResolved(true);
             flixClasspath.setCanBeDeclared(false);
-
-            flixSource.getDestinationDirectory().set(project.getLayout().getBuildDirectory().dir("classes/flix/" + sourceSet.getName()));
-
-            ((ConfigurableFileCollection) sourceSet.getOutput().getClassesDirs()).from(flixSource.getDestinationDirectory());
-
-            var flixCompile = project.getTasks().register(sourcedNameOf(sourceSet, "compileFlix"), FlixCompile.class, task -> {
-                task.getClasspath().from(configurations.getByName(sourceSet.getCompileClasspathConfigurationName()));
-                task.getFlixInput().from(flixClasspath);
-                task.getSource().set(flixSource.getSourceDirectories());
-            });
-
-            flixSource.compiledBy(flixCompile, FlixCompile::getDestinationDirectory);
         });
 
         BasePluginExtension basePluginExtension = project.getExtensions().getByType(BasePluginExtension.class);
@@ -137,16 +140,28 @@ public class FlixGradlePlugin implements Plugin<Project> {
             details.mapToMavenScope("compile");
         });
 
+        var flixClasspath = project.getConfigurations().getByName(sourcedNameOf(main, FLIX_CLASSPATH_CONFIGURATION_NAME));
+
+        var flixTomlTask = project.getTasks().register("flixToml", FlixToml.class, flixToml -> {
+            var artifacts = project.provider(() -> flixClasspath.getResolvedConfiguration().getFirstLevelModuleDependencies().stream().toList());
+            flixToml.getDependencyArtifactIds().set(artifacts.map(it -> it.stream().map(i -> i.getModule().getId()).toList()));
+            flixToml.getDependencyArtifactsAreFpkg().set(artifacts.map(it -> it.stream().map(i -> i.getModuleArtifacts().stream().anyMatch(ar -> ar.getFile().getName().endsWith(".fpkg"))).toList()));
+            flixToml.dependsOn(flixClasspath);
+            flixToml.getPackageName().convention(flixExtension.getFlixProjectName());
+            flixToml.getDestinationFile().set(basePluginExtension.getLibsDirectory().file("flix.toml"));
+        });
+
         var fpkgTask = project.getTasks().register("fpkg", Fpkg.class, fpkg -> {
             SourceDirectorySet flixSourceDirectorySet = (SourceDirectorySet) main.getExtensions().getByName("flix");
             fpkg.dependsOn(flixSourceDirectorySet);
+            fpkg.dependsOn(flixTomlTask);
             fpkg.into("src", spec -> {
                 spec.from(flixSourceDirectorySet.getSourceDirectories());
             });
+            fpkg.from(flixTomlTask.get().getDestinationFile());
             fpkg.setGroup("Build");
             fpkg.setDescription("Builds a Flix package");
-            //fpkg.getArchiveBaseName().set(basePluginExtension.getArchivesName());
-            //fpkg.getArchiveVersion().set(project.getVersion().toString());
+            fpkg.getArchiveFileName().set(flixExtension.getFlixProjectName().map(name -> name + ".fpkg"));
             fpkg.getDestinationDirectory().set(basePluginExtension.getLibsDirectory());
         });
         project.getTasks().getByName("assemble").dependsOn(fpkgTask);
@@ -159,9 +174,21 @@ public class FlixGradlePlugin implements Plugin<Project> {
 
     public static final String FLIX_CLASSPATH_CONFIGURATION_NAME = "flixClasspath";
 
-    private static String sourcedNameOf(SourceSet sourceSet, String baseName) {
+    static String sourcedNameOf(SourceSet sourceSet, String baseName) {
         var sourceSetBaseName = sourceSet.getName().equals("main") ? "" : Util.wordsToCamelCase(sourceSet.getName());
         return StringUtils.uncapitalize(sourceSetBaseName + StringUtils.capitalize(baseName));
+    }
+
+    static Stream<Dependency> processDependencies(Project project, Set<ResolvedDependency> deps) {
+        return deps.stream().flatMap(dep -> {
+            var artifacts = dep.getModuleArtifacts();
+            Stream<Dependency> children = processDependencies(project, dep.getChildren());
+            if (!artifacts.stream().allMatch(artifact -> "fpkg".equals(artifact.getExtension()))) {
+                var outDep = project.getDependencies().create(dep.getModule().toString());
+                return Stream.concat(Stream.of(outDep), children);
+            }
+            return children;
+        });
     }
 
     private SourceDirectorySet getFlixSourceDirectorySet(SourceSet sourceSet) {

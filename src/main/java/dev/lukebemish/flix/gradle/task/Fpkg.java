@@ -1,4 +1,4 @@
-package dev.lukebemish.flix.task;
+package dev.lukebemish.flix.gradle.task;
 
 import org.gradle.api.tasks.bundling.Zip;
 

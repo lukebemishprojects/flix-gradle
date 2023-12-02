@@ -1,0 +1,18 @@
+package dev.lukebemish.flix.gradle.task;
+
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.process.ExecOperations;
+
+import javax.inject.Inject;
+
+public abstract class FlixDocumentor extends AbstractFlixCompile {
+    @OutputDirectory
+    public abstract DirectoryProperty getDestinationDirectory();
+
+    @Inject
+    public FlixDocumentor(ExecOperations execOperations) {
+        super(execOperations);
+        this.getOptions().getOutput().finalizeValue();
+    }
+}

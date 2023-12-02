@@ -1,4 +1,4 @@
-package dev.lukebemish.flix;
+package dev.lukebemish.flix.gradle;
 
 import org.gradle.api.attributes.*;
 import org.jetbrains.annotations.NotNull;

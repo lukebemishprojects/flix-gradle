@@ -1,4 +1,4 @@
-package dev.lukebemish.flix.dependencies;
+package dev.lukebemish.flix.gradle.dependencies;
 
 import io.undertow.Handlers;
 import io.undertow.Undertow;
@@ -29,7 +29,7 @@ public final class FpkgRepositoryLayer {
     static final String PROXY_PORT_ENV_NAME = "FLIX_GRADLE_PROXY_PORT";
     static final String PROXY_PORT_PROP_NAME = "dev.lukebemish.flix.proxy.port";
 
-    public static final String ARTIFACT_TEMPLATE = "/io/github/{user}/{repository}/{version}/{file}";
+    public static final String ARTIFACT_TEMPLATE = "/github/{user}/{repository}/{version}/{file}";
     private static final String GITHUB_URI = "https://github.com/";
 
     private static int getProxyPort() {

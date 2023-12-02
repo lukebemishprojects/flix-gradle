@@ -1,6 +1,6 @@
-package dev.lukebemish.flix;
+package dev.lukebemish.flix.gradle;
 
-import dev.lukebemish.flix.dependencies.FpkgRepositoryLayer;
+import dev.lukebemish.flix.gradle.dependencies.FpkgRepositoryLayer;
 import org.gradle.api.services.BuildService;
 import org.gradle.api.services.BuildServiceParameters;
 

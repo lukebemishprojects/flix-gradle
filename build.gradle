@@ -1,5 +1,6 @@
 plugins {
     id 'java-gradle-plugin'
+    id 'maven-publish'
 }
 
 group = 'dev.lukebemish'
@@ -15,13 +16,18 @@ dependencies {
     implementation 'com.moandjiezana.toml:toml4j:0.7.2'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'org.apache.commons:commons-io:1.3.2'
+    implementation(project(":wrapper")) {
+        attributes {
+            attribute LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR)
+        }
+    }
 }
 
 gradlePlugin {
     plugins {
         flixGradle {
             id = 'dev.lukebemish.flix'
-            implementationClass = 'dev.lukebemish.flix.FlixGradlePlugin'
+            implementationClass = 'dev.lukebemish.flix.gradle.FlixGradlePlugin'
         }
     }
 }

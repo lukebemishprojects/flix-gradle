@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group = 'dev.lukebemish.flix-gradle'
+version = rootProject.version
+
+repositories {
+    ivy {
+        url = "https://github.com/flix/flix/releases/download/"
+        name = "Flix Releases"
+        patternLayout {
+            artifact "v[revision]/[artifact].[ext]"
+        }
+        metadataSources {
+            artifact()
+        }
+        content {
+            includeModule("dev.flix", "flix")
+        }
+    }
+}
+
+dependencies {
+    compileOnly 'dev.flix:flix:0.42.0'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Flix-Gradle-Wrapper-Classes': sourceSets.main.output.classesDirs.files.collectMany {
+            def paths = []
+            it.eachFileRecurse(groovy.io.FileType.FILES) { cl ->
+                if (cl.name.endsWith('.class')) {
+                    paths << it.relativePath(cl)
+                }
+            }
+            paths
+        }.join(',')
+    }
+}

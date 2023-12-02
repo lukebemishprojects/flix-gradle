@@ -1,4 +1,4 @@
-package dev.lukebemish.flix.dependencies;
+package dev.lukebemish.flix.gradle.dependencies;
 
 import com.moandjiezana.toml.Toml;
 import groovy.json.JsonOutput;
@@ -55,7 +55,7 @@ public class ArtifactHandler implements HttpHandler {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("formatVersion", "1.1");
         metadata.put("component", Map.of(
-                "group", "io.github."+user,
+                "group", "github/"+user,
                 "module", repository,
                 "version", version
         ));
@@ -88,7 +88,7 @@ public class ArtifactHandler implements HttpHandler {
             if (key.startsWith("github:")) {
                 var rest = key.substring(7);
                 var parts = rest.split("/");
-                dep.put("group", "io.github."+parts[0]);
+                dep.put("group", "github/"+parts[0]);
                 dep.put("module", parts[1]);
                 dep.put("version", Map.of(
                         "requires", entry.getValue()

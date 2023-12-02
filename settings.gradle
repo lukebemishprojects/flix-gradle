@@ -21,3 +21,4 @@ gradleEnterprise {
 
 rootProject.name = 'flix-gradle'
 
+include 'wrapper'
