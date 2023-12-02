@@ -1,23 +1,14 @@
 package dev.lukebemish.flix.gradle.dependencies;
 
-import io.undertow.Handlers;
-import io.undertow.Undertow;
-import io.undertow.protocols.ssl.UndertowXnioSsl;
-import io.undertow.server.RoutingHandler;
-import io.undertow.server.handlers.proxy.LoadBalancingProxyClient;
-import io.undertow.server.handlers.proxy.ProxyClient;
-import io.undertow.server.handlers.proxy.ProxyHandler;
+import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.BindException;
+import java.net.InetSocketAddress;
 import java.net.URI;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,6 +21,7 @@ public final class FpkgRepositoryLayer {
     static final String PROXY_PORT_PROP_NAME = "dev.lukebemish.flix.proxy.port";
 
     public static final String ARTIFACT_TEMPLATE = "/github/{user}/{repository}/{version}/{file}";
+    public static final String HANDLER_PREFIX = "/github/";
     private static final String GITHUB_URI = "https://github.com/";
 
     private static int getProxyPort() {
@@ -47,7 +39,9 @@ public final class FpkgRepositoryLayer {
                     System.out.println("Listening on: " + server.uri());
                     lock.wait();
                 } catch (InterruptedException e) {
-                    System.out.println("Shutting down...");
+                    LOGGER.info("Shutting down...");
+                } catch (IOException e) {
+                    LOGGER.error("Failed to start server", e);
                 }
             }
         });
@@ -59,60 +53,21 @@ public final class FpkgRepositoryLayer {
         }
     }
 
-    public static LayerServer startServer() {
-        Xnio instance = Xnio.getInstance();
-        ProxyClient fallback;
-        try {
-            fallback = new LoadBalancingProxyClient()
-                    .addHost(URI.create(GITHUB_URI), new UndertowXnioSsl(instance, OptionMap.EMPTY))
-                    .setConnectionsPerThread(20);
-        } catch (NoSuchProviderException | NoSuchAlgorithmException | KeyManagementException e) {
-            throw new RuntimeException(e);
-        }
-
-        ProxyHandler proxyHandler = ProxyHandler.builder()
-                .setProxyClient(fallback)
-                .setMaxRequestTime(30000)
-                .setRewriteHostHeader(true)
-                .build();
-
-        var artifactHandler = new ArtifactHandler();
-
-        RoutingHandler routingHandler = Handlers.routing()
-                .add(
-                        "HEAD",
-                    ARTIFACT_TEMPLATE,
-                        artifactHandler
-                )
-                .add(
-                        "GET",
-                    ARTIFACT_TEMPLATE,
-                        artifactHandler
-                ).setFallbackHandler(exchange -> {
-                    exchange.setStatusCode(404);
-                });
+    public static LayerServer startServer() throws IOException {
+        var httpServer = HttpServer.create();
+        httpServer.createContext(HANDLER_PREFIX, new ArtifactHandler());
 
         while (true) {
             try {
                 int proxyPort = getProxyPort() + PORT_INCREMENT.getAndIncrement();
-                return startOnPort(proxyPort, routingHandler);
-            } catch (RuntimeException e) {
-                if (e.getCause() != null && e.getCause() instanceof BindException) {
-                    continue;
-                }
-                throw e;
-            }
+                return startOnPort(proxyPort, httpServer);
+            } catch (BindException ignored) {}
         }
     }
 
-    private static LayerServer startOnPort(int port, RoutingHandler routingHandler) {
-        Undertow server = Undertow.builder()
-                .addHttpListener(port, "localhost")
-                .setHandler(routingHandler)
-                .setIoThreads(4)
-                .build();
-
-        server.start();
+    private static LayerServer startOnPort(int port, HttpServer httpServer) throws IOException {
+        httpServer.bind(new InetSocketAddress(port), 0);
+        httpServer.start();
 
         return new LayerServer() {
             @Override
@@ -122,7 +77,7 @@ public final class FpkgRepositoryLayer {
 
             @Override
             public void close() {
-                server.stop();
+                httpServer.stop(2);
             }
         };
 

@@ -1,54 +1,66 @@
 package dev.lukebemish.flix.gradle.dependencies;
 
 import com.moandjiezana.toml.Toml;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import groovy.json.JsonOutput;
 import groovy.json.StringEscapeUtils;
-import io.undertow.server.HttpHandler;
-import io.undertow.server.HttpServerExchange;
-import io.undertow.util.Headers;
-import io.undertow.util.Methods;
-import io.undertow.util.PathTemplateMatch;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ArtifactHandler implements HttpHandler {
 
     @Override
-    public void handleRequest(HttpServerExchange exchange) throws Exception {
-        Map<String, String> parameters = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY).getParameters();
-        String user = parameters.get("user");
-        String repository = parameters.get("repository");
-        String version = parameters.get("version");
-        String artifact = parameters.get("file");
+    public void handle(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath().substring(FpkgRepositoryLayer.HANDLER_PREFIX.length());
+        String[] parts = path.split("/");
+        if (parts.length != 4) {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+            return;
+        }
+        String user = parts[0];
+        String repository = parts[1];
+        String version = parts[2];
+        String artifact = parts[3];
         if (artifact.equals(repository+"-"+version+".module")) {
             String flixToml = "https://github.com/" + user + "/" + repository + "/releases/download/v" + version + "/flix.toml";
             URL url = new URL(flixToml);
-            if (exchange.getRequestMethod().equals(Methods.HEAD)) {
+            if (exchange.getRequestMethod().equals("HEAD")) {
                 var connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("HEAD");
                 if (connection.getResponseCode() == 200) {
-                    exchange.setStatusCode(200);
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
                     return;
                 }
-            } else if (exchange.getRequestMethod().equals(Methods.GET)) {
+            } else if (exchange.getRequestMethod().equals("GET")) {
                 try (var stream = new BufferedInputStream(url.openStream())) {
                     var toml = new Toml().read(stream);
                     Map<String, Object> moduleMetadata = makeModuleMetadata(user, repository, version, toml);
                     var body = JsonOutput.prettyPrint(JsonOutput.toJson(moduleMetadata));
-                    exchange.setStatusCode(200);
-                    exchange.setResponseContentLength(body.length());
-                    exchange.getResponseSender().send(body);
+                    exchange.sendResponseHeaders(200, 0);
+                    exchange.getResponseBody().write(body.getBytes());
+                    exchange.close();
                     return;
                 } catch (IOException ignored) {}
+            } else {
+                exchange.sendResponseHeaders(405, -1);
+                exchange.close();
+                return;
             }
         }
         String out = "https://github.com/"+user+"/"+repository+"/releases/download/v"+version+"/"+artifact;
-        exchange.getResponseHeaders().put(Headers.LOCATION, out);
-        exchange.setStatusCode(302);
+        exchange.getResponseHeaders().put("Location", List.of(out));
+        exchange.sendResponseHeaders(302, -1);
+        exchange.close();
     }
 
     private static Map<String, Object> makeModuleMetadata(String user, String repository, String version, Toml toml) {
@@ -122,19 +134,7 @@ public class ArtifactHandler implements HttpHandler {
             ));
         }
         flixVariant.put("dependencies", dependencyList);
-        Map<String, Object> sourceVariant = new LinkedHashMap<>();
-        sourceVariant.put("name", "sourceElements");
-        sourceVariant.put("attributes", Map.of(
-            "org.gradle.category", "documentation",
-            "org.gradle.dependency.bundling", "external",
-            "org.gradle.docstype", "sources",
-            "org.gradle.usage", "java-runtime"
-        ));
-        sourceVariant.put("files", List.of(Map.of(
-            "name", "v"+version+".zip",
-            "url", "https://github.com/"+user+"/"+repository+"/archive/v"+version+".zip"
-        )));
-        metadata.put("variants", List.of(flixVariant, sourceVariant));
+        metadata.put("variants", List.of(flixVariant));
         return metadata;
     }
 }

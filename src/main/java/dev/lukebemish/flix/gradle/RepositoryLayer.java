@@ -10,7 +10,11 @@ public abstract class RepositoryLayer implements BuildService<BuildServiceParame
 
     private final FpkgRepositoryLayer.LayerServer layerServer;
     public RepositoryLayer() {
+        try {
         layerServer = FpkgRepositoryLayer.startServer();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
