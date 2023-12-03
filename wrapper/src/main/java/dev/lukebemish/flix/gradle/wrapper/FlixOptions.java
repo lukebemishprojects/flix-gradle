@@ -60,15 +60,15 @@ class FlixOptions {
 
         String sourceJars = properties.getProperty("sourceJars");
         if (sourceJars != null) {
-            Arrays.stream(sourceJars.split(",")).map(Path::of).forEach(this.sourceJars::add);
+            Arrays.stream(sourceJars.split(",")).filter(s->!s.isEmpty()).map(Path::of).forEach(this.sourceJars::add);
         }
         String sourceFlix = properties.getProperty("sourceFlix");
         if (sourceFlix != null) {
-            Arrays.stream(sourceFlix.split(",")).map(Path::of).forEach(this.sourceFlix::add);
+            Arrays.stream(sourceFlix.split(",")).filter(s->!s.isEmpty()).map(Path::of).forEach(this.sourceFlix::add);
         }
         String sourceFlixPkgs = properties.getProperty("sourceFlixPkgs");
         if (sourceFlixPkgs != null) {
-            Arrays.stream(sourceFlixPkgs.split(",")).map(Path::of).forEach(this.sourceFlixPkgs::add);
+            Arrays.stream(sourceFlixPkgs.split(",")).filter(s->!s.isEmpty()).map(Path::of).forEach(this.sourceFlixPkgs::add);
         }
     }
 

@@ -118,7 +118,7 @@ public abstract class AbstractFlixCompile extends DefaultTask {
 
         var exec = execActionFactory.newJavaExecAction();
         exec.classpath(classpath.toArray());
-        exec.getMainClass().set("dev.lukebemish.flix.gradle.wrapper.Wrapper");
+        exec.getMainClass().set("dev.lukebemish.flix.gradle.wrapper.Bootstrap");
         exec.args(propertiesFile.toAbsolutePath().toString());
 
         exec.setWorkingDir(runDir.toFile());

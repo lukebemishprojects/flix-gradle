@@ -23,6 +23,7 @@ import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.bundling.Jar;
 
 import javax.inject.Inject;
+import java.util.Map;
 
 public abstract class FlixGradleExtension {
     public abstract Property<String> getFlixProjectName();
@@ -95,6 +96,10 @@ public abstract class FlixGradleExtension {
             flixSource.compiledBy(flixCompile, FlixCompile::getDestinationDirectory);
 
             Configuration flixRuntimeResolvable = configurations.maybeCreate(FlixGradlePlugin.sourcedNameOf(sourceSet, "flixRuntimeResolvable"));
+            flixRuntimeResolvable.exclude(Map.of(
+                "group", "dev.flix",
+                "module", "flix"
+            ));
             flixRuntimeResolvable.extendsFrom(flix);
             flixRuntimeResolvable.setCanBeResolved(true);
             flixRuntimeResolvable.setCanBeConsumed(false);
