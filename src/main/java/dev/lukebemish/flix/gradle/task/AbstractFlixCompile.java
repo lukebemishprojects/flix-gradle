@@ -56,7 +56,7 @@ public abstract class AbstractFlixCompile extends DefaultTask {
         this.getJavaLauncher().convention(getJavaToolchainService().launcherFor(javaPluginExtension.getToolchain()));
     }
 
-    protected Path runExec(Properties properties) {
+    protected Path runExec(Properties properties, String... args) {
         Path tempDir = getTemporaryDir().toPath();
 
         Path tempClasses = tempDir.resolve("classes");
@@ -120,6 +120,7 @@ public abstract class AbstractFlixCompile extends DefaultTask {
         exec.classpath(classpath.toArray());
         exec.getMainClass().set("dev.lukebemish.flix.gradle.wrapper.Bootstrap");
         exec.args(propertiesFile.toAbsolutePath().toString());
+        exec.args((Object[]) args);
 
         exec.setWorkingDir(runDir.toFile());
 

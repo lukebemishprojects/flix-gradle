@@ -1,6 +1,7 @@
 package dev.lukebemish.flix.gradle;
 
 import dev.lukebemish.flix.gradle.task.FlixCompile;
+import dev.lukebemish.flix.gradle.task.FlixRun;
 import dev.lukebemish.flix.gradle.task.LibLevel;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -138,6 +139,17 @@ public abstract class FlixGradleExtension {
             jar.manifest(manifest -> {
                 manifest.getAttributes().put("Main-Class", "Main");
             });
+        });
+
+        var main = sourceSets.getByName("main");
+        var flixSource = (SourceDirectorySet) main.getExtensions().getByName("flix");
+        var flixClasspath = project.getConfigurations().maybeCreate(FlixGradlePlugin.sourcedNameOf(main, FlixGradlePlugin.FLIX_CLASSPATH_CONFIGURATION_NAME));
+        project.getTasks().register("runFlix", FlixRun.class, task -> {
+            task.getFlixInput().from(flixClasspath);
+            task.getSource().set(flixSource.getSourceDirectories());
+            task.setDescription("Runs this project with flix");
+            task.setGroup("application");
+            task.getOutputs().upToDateWhen(t -> false);
         });
     }
 

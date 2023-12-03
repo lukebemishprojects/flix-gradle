@@ -1,10 +1,9 @@
 package dev.lukebemish.flix.gradle.wrapper;
 
-import ca.uwaterloo.flix.api.Bootstrap;
 import ca.uwaterloo.flix.api.Flix;
-import ca.uwaterloo.flix.util.Formatter;
+import ca.uwaterloo.flix.language.CompilationMessage;
+import ca.uwaterloo.flix.runtime.CompilationResult;
 import ca.uwaterloo.flix.util.Validation;
-import scala.Option;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -33,24 +32,13 @@ public final class Wrapper {
 
         FlixCommand command = FlixCommand.valueOf(properties.getProperty("command").toUpperCase(Locale.ROOT));
 
-        Path currentDir = Paths.get("").toAbsolutePath();
-
-        Bootstrap bootstrap = new Bootstrap(currentDir, Option.empty());
+        Flix flix = new Flix();
+        flix.setOptions(options.create());
+        options.configure(flix);
 
         switch (command) {
             case COMPILE -> {
-                Flix flix = new Flix();
-                flix.setOptions(options.create());
-                options.configure(flix);
-                var validation = flix.compile();
-                if (!(validation instanceof Validation.Success)) {
-                    scala.collection.Iterable<String> list = flix.mkMessages(validation.toHardFailure().errors());
-                    while (!list.isEmpty()) {
-                        System.err.println(list.head());
-                        list = list.tail();
-                    }
-                    throw new RuntimeException("Compilation failed");
-                }
+                compile(flix);
             }
             case DOC -> {
                 // TODO: Implement
@@ -65,17 +53,28 @@ public final class Wrapper {
                     System.arraycopy(args, 1, newArgs, 0, args.length);
                 }
 
-                var validation = bootstrap.run(options.create(), newArgs);
+                var main = compile(flix).getMain();
 
-                if (!(validation instanceof Validation.Success)) {
-                    var list = validation.toHardFailure().errors();
-                    while (!list.isEmpty()) {
-                        System.err.println(list.head().message(Formatter.getDefault()));
-                        list = list.tail();
-                    }
-                    throw new RuntimeException("Run failed");
+                if (main.isEmpty()) {
+                    throw new RuntimeException("No main function found");
+                } else {
+                    main.get().apply(newArgs);
                 }
             }
+        }
+    }
+
+    private static CompilationResult compile(Flix flix) {
+        var validation = flix.compile();
+        if (!(validation instanceof Validation.Success<CompilationResult, CompilationMessage> success)) {
+            scala.collection.Iterable<String> list = flix.mkMessages(validation.toHardFailure().errors());
+            while (!list.isEmpty()) {
+                System.err.println(list.head());
+                list = list.tail();
+            }
+            throw new RuntimeException("Compilation failed");
+        } else {
+            return success.get();
         }
     }
 
