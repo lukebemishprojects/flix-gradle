@@ -1,6 +1,8 @@
 package dev.lukebemish.flix.gradle.wrapper;
 
 import ca.uwaterloo.flix.api.Flix;
+import ca.uwaterloo.flix.util.JvmTarget;
+import ca.uwaterloo.flix.util.LibLevel;
 import ca.uwaterloo.flix.util.Options;
 import scala.Option;
 
@@ -11,14 +13,49 @@ import java.util.stream.IntStream;
 
 class FlixOptions {
     private Path outputDirectory;
-    private List<Path> sourceJars = new ArrayList<>();
-    private List<Path> sourceFlix = new ArrayList<>();
-    private List<Path> sourceFlixPkgs = new ArrayList<>();
+    private Boolean strictMonomorphism;
+    private JvmTarget jvmTarget;
+    private final List<Path> sourceJars = new ArrayList<>();
+    private final List<Path> sourceFlix = new ArrayList<>();
+    private final List<Path> sourceFlixPkgs = new ArrayList<>();
+    private LibLevel libLevel;
 
     void read(Properties properties) {
         String output = properties.getProperty("output");
         if (output != null) {
             outputDirectory = Path.of(output);
+        }
+        String strictMonomorphism = properties.getProperty("strictMonomorphism");
+        if (strictMonomorphism != null) {
+            this.strictMonomorphism = Boolean.parseBoolean(strictMonomorphism);
+        }
+        String jvmTarget = properties.getProperty("jvmTarget");
+        switch (jvmTarget) {
+            case "6" -> this.jvmTarget = JvmTarget.Version16$.MODULE$;
+            case "7" -> this.jvmTarget = JvmTarget.Version17$.MODULE$;
+            case "8" -> this.jvmTarget = JvmTarget.Version18$.MODULE$;
+            case "9" -> this.jvmTarget = JvmTarget.Version19$.MODULE$;
+            default -> {
+                try {
+                    int version = Integer.parseInt(jvmTarget);
+                    if (version > 9) {
+                        // silently fail to set jvmTarget - which seems to be necessary to generate bytecode on java 10+
+                        this.jvmTarget = null;
+                    }
+                } catch (NumberFormatException e) {
+                    throw new RuntimeException("Invalid jvmTarget: " + jvmTarget);
+                }
+            }
+        }
+
+        String libLevel = properties.getProperty("libLevel");
+        if (libLevel != null) {
+            this.libLevel = switch (libLevel) {
+                case "nix" -> LibLevel.Nix$.MODULE$;
+                case "min" -> LibLevel.Min$.MODULE$;
+                case "all" -> LibLevel.All$.MODULE$;
+                default -> throw new RuntimeException("Unknown lib level: "+libLevel);
+            };
         }
 
         String sourceJars = properties.getProperty("sourceJars");
@@ -76,6 +113,9 @@ class FlixOptions {
     private Optional<Object> handleProperty(String option) {
         return switch (option) {
             case "output" -> outputDirectory == null ? Optional.empty() : Optional.of(Option.apply(outputDirectory));
+            case "xstrictmono" -> strictMonomorphism == null ? Optional.empty() : Optional.of(strictMonomorphism);
+            case "target" -> jvmTarget == null ? Optional.empty() : Optional.of(jvmTarget);
+            case "lib" -> libLevel == null ? Optional.empty() : Optional.of(libLevel);
             default -> Optional.empty();
         };
     }

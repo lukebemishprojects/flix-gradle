@@ -18,7 +18,6 @@ import org.gradle.api.attributes.Usage;
 import org.gradle.api.attributes.java.TargetJvmEnvironment;
 import org.gradle.api.attributes.java.TargetJvmVersion;
 import org.gradle.api.component.AdhocComponentWithVariants;
-import org.gradle.api.component.SoftwareComponentFactory;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.BasePluginExtension;
@@ -29,7 +28,6 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.jetbrains.annotations.NotNull;
 
-import javax.inject.Inject;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -39,13 +37,6 @@ public class FlixGradlePlugin implements Plugin<Project> {
 
     public static final String FPKG_ELEMENT = "fpkg";
     public static final String FLIX_CLASSES_ELEMENT = "flix-classes";
-
-    private final SoftwareComponentFactory softwareComponentFactory;
-
-    @Inject
-    public FlixGradlePlugin(SoftwareComponentFactory softwareComponentFactory) {
-        this.softwareComponentFactory = softwareComponentFactory;
-    }
 
     @Override
     public void apply(@NotNull Project project) {
@@ -58,9 +49,7 @@ public class FlixGradlePlugin implements Plugin<Project> {
         project.getRepositories().ivy(ivy -> {
             ivy.setUrl("https://github.com/flix/flix/releases/download/");
             ivy.setName("Flix Releases Repository");
-            ivy.patternLayout(p -> {
-                p.artifact("v[revision]/[artifact].[ext]");
-            });
+            ivy.patternLayout(p -> p.artifact("v[revision]/[artifact].[ext]"));
             ivy.metadataSources(IvyArtifactRepository.MetadataSources::artifact);
             ivy.content(content -> {
                 content.includeModule("dev.flix", "flix");
@@ -77,9 +66,7 @@ public class FlixGradlePlugin implements Plugin<Project> {
             maven.setName("flix.toml parsing repository");
             maven.metadataSources(MavenArtifactRepository.MetadataSources::gradleMetadata);
             maven.setAllowInsecureProtocol(true);
-            maven.content(content -> {
-                content.includeGroupByRegex("github/.*");
-            });
+            maven.content(content -> content.includeGroupByRegex("github/.*"));
         });
 
         project.getDependencies().attributesSchema(schema -> {
@@ -125,6 +112,23 @@ public class FlixGradlePlugin implements Plugin<Project> {
         BasePluginExtension basePluginExtension = project.getExtensions().getByType(BasePluginExtension.class);
 
         AdhocComponentWithVariants javaComponent = (AdhocComponentWithVariants) project.getComponents().getByName("java");
+
+        project.getComponents().named("java", component -> {
+            Configuration runtimeElements = project.getConfigurations().getByName(JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME);
+            Configuration apiElements = project.getConfigurations().getByName(JavaPlugin.API_ELEMENTS_CONFIGURATION_NAME);
+            var adhocComponent = (AdhocComponentWithVariants) component;
+            adhocComponent.withVariantsFromConfiguration(runtimeElements, details -> {
+                if (flixExtension.getSkipRuntimeElements().get()) {
+                    details.skip();
+                }
+            });
+            adhocComponent.withVariantsFromConfiguration(apiElements, details -> {
+                if (flixExtension.getSkipApiElements().get()) {
+                    details.skip();
+                }
+            });
+        });
+
         SourceSet main = sourceSets.getByName("main");
 
         Configuration fpkgElements = project.getConfigurations().maybeCreate("fpkgElements");
@@ -136,9 +140,7 @@ public class FlixGradlePlugin implements Plugin<Project> {
         fpkgElements.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE, objectFactory.named(Category.class, Category.LIBRARY));
         fpkgElements.getAttributes().attribute(Bundling.BUNDLING_ATTRIBUTE, objectFactory.named(Bundling.class, Bundling.EXTERNAL));
 
-        javaComponent.addVariantsFromConfiguration(fpkgElements, details -> {
-            details.mapToMavenScope("compile");
-        });
+        javaComponent.addVariantsFromConfiguration(fpkgElements, details -> details.mapToMavenScope("compile"));
 
         var flixClasspath = project.getConfigurations().getByName(sourcedNameOf(main, FLIX_CLASSPATH_CONFIGURATION_NAME));
 
@@ -155,9 +157,7 @@ public class FlixGradlePlugin implements Plugin<Project> {
             SourceDirectorySet flixSourceDirectorySet = (SourceDirectorySet) main.getExtensions().getByName("flix");
             fpkg.dependsOn(flixSourceDirectorySet);
             fpkg.dependsOn(flixTomlTask);
-            fpkg.into("src", spec -> {
-                spec.from(flixSourceDirectorySet.getSourceDirectories());
-            });
+            fpkg.into("src", spec -> spec.from(flixSourceDirectorySet.getSourceDirectories()));
             fpkg.from(flixTomlTask.get().getDestinationFile());
             fpkg.setGroup("Build");
             fpkg.setDescription("Builds a Flix package");

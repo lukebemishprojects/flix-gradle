@@ -2,6 +2,8 @@ package dev.lukebemish.flix.gradle.wrapper;
 
 import ca.uwaterloo.flix.api.Bootstrap;
 import ca.uwaterloo.flix.api.Flix;
+import ca.uwaterloo.flix.util.Formatter;
+import ca.uwaterloo.flix.util.Validation;
 import scala.Option;
 
 import java.nio.charset.StandardCharsets;
@@ -40,20 +42,39 @@ public final class Wrapper {
                 Flix flix = new Flix();
                 flix.setOptions(options.create());
                 options.configure(flix);
-                flix.compile();
+                var validation = flix.compile();
+                if (!(validation instanceof Validation.Success)) {
+                    scala.collection.Iterable<String> list = flix.mkMessages(validation.toHardFailure().errors());
+                    while (!list.isEmpty()) {
+                        System.err.println(list.head());
+                        list = list.tail();
+                    }
+                    throw new RuntimeException("Compilation failed");
+                }
             }
             case DOC -> {
-                bootstrap.doc(options.create());
+                // TODO: Implement
+                throw new UnsupportedOperationException("Not yet implemented");
             }
             case RUN -> {
                 String[] newArgs;
-                if (args.length <= 1) {
+                if (args.length == 1) {
                     newArgs = new String[0];
                 } else {
                     newArgs = new String[args.length - 1];
                     System.arraycopy(args, 1, newArgs, 0, args.length);
                 }
-                bootstrap.run(options.create(), newArgs);
+
+                var validation = bootstrap.run(options.create(), newArgs);
+
+                if (!(validation instanceof Validation.Success)) {
+                    var list = validation.toHardFailure().errors();
+                    while (!list.isEmpty()) {
+                        System.err.println(list.head().message(Formatter.getDefault()));
+                        list = list.tail();
+                    }
+                    throw new RuntimeException("Run failed");
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 package dev.lukebemish.flix.gradle;
 
 import dev.lukebemish.flix.gradle.task.FlixCompile;
+import dev.lukebemish.flix.gradle.task.LibLevel;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
@@ -17,6 +18,7 @@ import org.gradle.api.plugins.BasePluginExtension;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.bundling.Jar;
 
@@ -24,9 +26,14 @@ import javax.inject.Inject;
 
 public abstract class FlixGradleExtension {
     public abstract Property<String> getFlixProjectName();
+    public abstract Property<Boolean> getSkipRuntimeElements();
+    public abstract Property<Boolean> getSkipApiElements();
 
     private final ObjectFactory objectFactory;
     private final Project project;
+
+    private boolean isApplication = false;
+
 
     @Inject
     public FlixGradleExtension(Project project, ObjectFactory objectFactory) {
@@ -34,10 +41,35 @@ public abstract class FlixGradleExtension {
         this.project = project;
         BasePluginExtension basePluginExtension = project.getExtensions().getByType(BasePluginExtension.class);
         getFlixProjectName().convention(basePluginExtension.getArchivesName());
+        this.getSkipRuntimeElements().convention(project.provider(() -> !isApplication));
+        this.getSkipApiElements().convention(true);
+    }
+
+    @Nested
+    public abstract LibLevels getLibLevels();
+
+    public abstract static class LibLevels {
+        @Inject
+        protected ObjectFactory getObjectFactory() {
+            throw new UnsupportedOperationException();
+        }
+
+        public LibLevel getNix() {
+            return getObjectFactory().named(LibLevel.class, LibLevel.NIX);
+        }
+
+        public LibLevel getMin() {
+            return getObjectFactory().named(LibLevel.class, LibLevel.MIN);
+        }
+
+        public LibLevel getAll() {
+            return getObjectFactory().named(LibLevel.class, LibLevel.ALL);
+        }
     }
 
     @SuppressWarnings("UnstableApiUsage")
     public void application() {
+        this.isApplication = true;
         JavaPluginExtension javaPluginExtension = project.getExtensions().getByType(JavaPluginExtension.class);
         SourceSetContainer sourceSets = javaPluginExtension.getSourceSets();
 
@@ -58,9 +90,7 @@ public abstract class FlixGradleExtension {
                 task.getSource().set(flixSource.getSourceDirectories());
             });
 
-            project.getTasks().named(sourceSet.getClassesTaskName(), (task) -> {
-                task.dependsOn(flixCompile);
-            });
+            project.getTasks().named(sourceSet.getClassesTaskName(), task -> task.dependsOn(flixCompile));
 
             flixSource.compiledBy(flixCompile, FlixCompile::getDestinationDirectory);
 

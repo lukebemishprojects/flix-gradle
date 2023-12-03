@@ -1,10 +1,11 @@
 package dev.lukebemish.flix.gradle.task;
 
 import org.apache.commons.io.FileUtils;
+import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
-import org.gradle.process.ExecOperations;
+import org.gradle.process.internal.ExecActionFactory;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -16,8 +17,8 @@ public abstract class FlixCompile extends AbstractFlixCompile {
     public abstract DirectoryProperty getDestinationDirectory();
 
     @Inject
-    public FlixCompile(ExecOperations execOperations) {
-        super(execOperations);
+    public FlixCompile(Project project, ExecActionFactory execActionFactory) {
+        super(project, execActionFactory);
         this.getOptions().getOutput().convention(getDestinationDirectory());
     }
 

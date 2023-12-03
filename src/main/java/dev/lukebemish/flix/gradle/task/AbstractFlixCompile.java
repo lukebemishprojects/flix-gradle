@@ -3,13 +3,18 @@ package dev.lukebemish.flix.gradle.task;
 import dev.lukebemish.flix.gradle.wrapper.WrapperFinder;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.SkipWhenEmpty;
-import org.gradle.process.ExecOperations;
+import org.gradle.jvm.toolchain.JavaLanguageVersion;
+import org.gradle.jvm.toolchain.JavaLauncher;
+import org.gradle.jvm.toolchain.JavaToolchainService;
+import org.gradle.process.internal.ExecActionFactory;
 import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
@@ -34,11 +39,21 @@ public abstract class AbstractFlixCompile extends DefaultTask {
     public abstract Property<FileCollection> getSource();
     @Nested
     public abstract FlixOptions getOptions();
+    @Nested
+    public abstract Property<JavaLauncher> getJavaLauncher();
 
-    private final ExecOperations execOperations;
     @Inject
-    public AbstractFlixCompile(ExecOperations execOperations) {
-        this.execOperations = execOperations;
+    protected JavaToolchainService getJavaToolchainService() {
+        throw new UnsupportedOperationException();
+    }
+
+    private final ExecActionFactory execActionFactory;
+    @Inject
+    public AbstractFlixCompile(Project project, ExecActionFactory execActionFactory) {
+        this.execActionFactory = execActionFactory;
+        JavaPluginExtension javaPluginExtension = project.getExtensions().getByType(JavaPluginExtension.class);
+        this.getOptions().getJvmTarget().convention(javaPluginExtension.getToolchain().getLanguageVersion().map(JavaLanguageVersion::asInt));
+        this.getJavaLauncher().convention(getJavaToolchainService().launcherFor(javaPluginExtension.getToolchain()));
     }
 
     protected Path runExec(Properties properties) {
@@ -101,13 +116,15 @@ public abstract class AbstractFlixCompile extends DefaultTask {
             throw new RuntimeException(e);
         }
 
-        execOperations.javaexec(exec -> {
-            exec.classpath(classpath.toArray());
-            exec.getMainClass().set("dev.lukebemish.flix.gradle.wrapper.Wrapper");
-            exec.args(propertiesFile.toAbsolutePath().toString());
+        var exec = execActionFactory.newJavaExecAction();
+        exec.classpath(classpath.toArray());
+        exec.getMainClass().set("dev.lukebemish.flix.gradle.wrapper.Wrapper");
+        exec.args(propertiesFile.toAbsolutePath().toString());
 
-            exec.setWorkingDir(runDir.toFile());
-        });
+        exec.setWorkingDir(runDir.toFile());
+
+        exec.setExecutable(this.getJavaLauncher().get().getExecutablePath().toString());
+        exec.execute();
 
         return runDir;
     }
