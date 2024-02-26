@@ -15,6 +15,8 @@ import org.gradle.api.tasks.TaskAction;
 
 import javax.inject.Inject;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +57,7 @@ public abstract class FlixToml extends DefaultTask {
     }
 
     @TaskAction
-    public void generate() {
+    public void generate() throws IOException {
         Map<String, Object> tomlMap = new HashMap<>();
         Map<String, Object> packageMap = new HashMap<>();
         packageMap.put("name", getPackageName().get());
@@ -98,8 +100,8 @@ public abstract class FlixToml extends DefaultTask {
 
         TomlWriter tomlWriter = new TomlWriter();
 
-        getDestinationFile().get().getAsFile().getParentFile().mkdirs();
-        getDestinationFile().get().getAsFile().delete();
+        Files.createDirectories(getDestinationFile().get().getAsFile().toPath().getParent());
+        Files.deleteIfExists(getDestinationFile().get().getAsFile().toPath());
         try (var os = new FileOutputStream(getDestinationFile().get().getAsFile())) {
             tomlWriter.write(tomlMap, os);
         } catch (Exception e) {
