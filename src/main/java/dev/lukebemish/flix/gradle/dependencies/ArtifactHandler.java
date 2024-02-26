@@ -21,7 +21,7 @@ public class ArtifactHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath().substring(FpkgRepositoryLayer.HANDLER_PREFIX.length());
         String[] parts = path.split("/");
-        if (parts.length != 4) {
+        if (parts.length != 5 || !parts[0].equals(parts[3])) {
             exchange.sendResponseHeaders(404, -1);
             exchange.close();
             return;
@@ -29,7 +29,7 @@ public class ArtifactHandler implements HttpHandler {
         String user = parts[0];
         String repository = parts[1];
         String version = parts[2];
-        String artifact = parts[3];
+        String artifact = parts[4];
         if (artifact.equals(repository+"-"+version+".module")) {
             String flixToml = "https://github.com/" + user + "/" + repository + "/releases/download/v" + version + "/flix.toml";
             URL url = new URL(flixToml);
@@ -67,8 +67,8 @@ public class ArtifactHandler implements HttpHandler {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("formatVersion", "1.1");
         metadata.put("component", Map.of(
-                "group", "github/"+user,
-                "module", repository,
+                "group", "github",
+                "module", user+"/"+repository,
                 "version", version
         ));
         var flixVersion = toml.getString("flix");
@@ -87,8 +87,8 @@ public class ArtifactHandler implements HttpHandler {
                 "org.gradle.usage", "java-api"
         ));
         flixVariant.put("files", List.of(Map.of(
-                "name", repository+".fpkg",
-                "url", repository+".fpkg"
+                "name", user+"/"+repository+".fpkg",
+                "url", user+"/"+repository+".fpkg"
         )));
         List<Object> dependencyList = new ArrayList<>();
         for (var entry : dependencies.entrySet()) {
@@ -97,11 +97,10 @@ public class ArtifactHandler implements HttpHandler {
             if (key.startsWith("\"") && key.endsWith("\"")) {
                 key = StringEscapeUtils.unescapeJava(key.substring(1, key.length()-1));
             }
-            if (key.startsWith("github:")) {
+            if (key.startsWith("github")) {
                 var rest = key.substring(7);
-                var parts = rest.split("/");
-                dep.put("group", "github/"+parts[0]);
-                dep.put("module", parts[1]);
+                dep.put("group", "github");
+                dep.put("module", rest);
                 dep.put("version", Map.of(
                         "requires", entry.getValue()
                 ));

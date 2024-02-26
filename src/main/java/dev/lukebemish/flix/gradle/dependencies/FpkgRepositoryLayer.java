@@ -20,9 +20,7 @@ public final class FpkgRepositoryLayer {
     static final String PROXY_PORT_ENV_NAME = "FLIX_GRADLE_PROXY_PORT";
     static final String PROXY_PORT_PROP_NAME = "dev.lukebemish.flix.proxy.port";
 
-    public static final String ARTIFACT_TEMPLATE = "/github/{user}/{repository}/{version}/{file}";
     public static final String HANDLER_PREFIX = "/github/";
-    private static final String GITHUB_URI = "https://github.com/";
 
     private static int getProxyPort() {
         return Optional.ofNullable(System.getenv(PROXY_PORT_ENV_NAME))

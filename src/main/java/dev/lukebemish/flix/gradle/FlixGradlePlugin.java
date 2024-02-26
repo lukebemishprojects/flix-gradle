@@ -10,7 +10,6 @@ import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.artifacts.repositories.IvyArtifactRepository;
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.attributes.Bundling;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.attributes.LibraryElements;
@@ -19,6 +18,8 @@ import org.gradle.api.attributes.java.TargetJvmEnvironment;
 import org.gradle.api.attributes.java.TargetJvmVersion;
 import org.gradle.api.component.AdhocComponentWithVariants;
 import org.gradle.api.file.SourceDirectorySet;
+import org.gradle.api.flow.FlowProviders;
+import org.gradle.api.flow.FlowScope;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.BasePluginExtension;
 import org.gradle.api.plugins.JavaPlugin;
@@ -28,15 +29,22 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.jetbrains.annotations.NotNull;
 
+import javax.inject.Inject;
 import java.util.Set;
 import java.util.stream.Stream;
 
 @SuppressWarnings("UnstableApiUsage")
-public class FlixGradlePlugin implements Plugin<Project> {
+public abstract class FlixGradlePlugin implements Plugin<Project> {
     private ObjectFactory objectFactory;
 
     public static final String FPKG_ELEMENT = "fpkg";
     public static final String FLIX_CLASSES_ELEMENT = "flix-classes";
+
+    @Inject
+    protected abstract FlowScope getFlowScope();
+
+    @Inject
+    protected abstract FlowProviders getFlowProviders();
 
     @Override
     public void apply(@NotNull Project project) {
@@ -45,6 +53,12 @@ public class FlixGradlePlugin implements Plugin<Project> {
         var flixExtension = project.getExtensions().create("flix", FlixGradleExtension.class, project);
 
         Provider<RepositoryLayer> repositoryLayer = project.getGradle().getSharedServices().registerIfAbsent("flixRepositoryLayer", RepositoryLayer.class, spec -> {});
+
+        getFlowScope().always(
+            ResolutionSetup.class,
+            spec ->
+                spec.getParameters().getShouldClose().set(getFlowProviders().getBuildWorkResult().map(result -> true))
+        );
 
         project.getRepositories().ivy(ivy -> {
             ivy.setUrl("https://github.com/flix/flix/releases/download/");
@@ -61,12 +75,12 @@ public class FlixGradlePlugin implements Plugin<Project> {
             });
         });
 
-        project.getRepositories().maven(maven -> {
-            maven.setUrl(repositoryLayer.get().url());
-            maven.setName("flix.toml parsing repository");
-            maven.metadataSources(MavenArtifactRepository.MetadataSources::gradleMetadata);
-            maven.setAllowInsecureProtocol(true);
-            maven.content(content -> content.includeGroupByRegex("github/.*"));
+        project.getRepositories().ivy(ivy -> {
+            ivy.setUrl(repositoryLayer.get().url());
+            ivy.setName("flix.toml parsing repository");
+            ivy.metadataSources(IvyArtifactRepository.MetadataSources::gradleMetadata);
+            ivy.setAllowInsecureProtocol(true);
+            ivy.content(content -> content.includeGroup("github"));
         });
 
         project.getDependencies().attributesSchema(schema -> {

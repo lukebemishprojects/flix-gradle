@@ -1,10 +1,10 @@
 plugins {
-    id 'dev.lukebemish.flix'
+    id 'dev.lukebemish.flix-gradle'
     id 'maven-publish'
 }
 
-group='dev.lukebemish.flix'
-version='1.0-SNAPSHOT'
+group='dev.lukebemish.flix-gradle'
+version='1.0.0'
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 
@@ -16,13 +16,18 @@ flix.application()
 
 dependencies {
     flix 'dev.flix:flix:0.42.0'
-    flix 'github/flix:museum:1.4.0'
+    flix 'github:flix/museum:1.4.0'
 }
 
 publishing {
     publications {
         maven(MavenPublication) {
             from components.java
+        }
+    }
+    repositories {
+        maven {
+            url file('build/repo')
         }
     }
 }
