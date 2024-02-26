@@ -5,6 +5,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.plugins.BasePluginExtension;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
@@ -15,6 +16,7 @@ import org.gradle.api.tasks.TaskAction;
 import javax.inject.Inject;
 import java.io.FileOutputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public abstract class FlixToml extends DefaultTask {
@@ -37,12 +39,19 @@ public abstract class FlixToml extends DefaultTask {
     @Input
     @Optional
     public abstract ListProperty<String> getPackageAuthors();
+    @Input
+    @Optional
+    public abstract ListProperty<String> getPackageModules();
 
     @Inject
     public FlixToml(Project project) {
         getPackageVersion().convention(project.provider(() ->
             project.getVersion() == "unspecified" ? null : project.getVersion().toString()
         ));
+        BasePluginExtension basePluginExtension = project.getExtensions().getByType(BasePluginExtension.class);
+        getPackageName().convention(basePluginExtension.getArchivesName());
+        getPackageModules().convention(basePluginExtension.getArchivesName().map(List::of));
+        getPackageDescription().convention(project.provider(project::getDescription));
     }
 
     @TaskAction
@@ -53,6 +62,9 @@ public abstract class FlixToml extends DefaultTask {
         packageMap.put("version", getPackageVersion().get());
         if (getPackageDescription().isPresent()) {
             packageMap.put("description", getPackageDescription().get());
+        }
+        if (getPackageModules().isPresent() && !getPackageModules().get().isEmpty()) {
+            packageMap.put("modules", getPackageModules().get());
         }
         if (getPackageLicense().isPresent()) {
             packageMap.put("license", getPackageLicense().get());

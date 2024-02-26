@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'dev.flix:flix:0.42.0'
+    compileOnly 'dev.flix:flix:0.44.0'
 }
 
 publishing {

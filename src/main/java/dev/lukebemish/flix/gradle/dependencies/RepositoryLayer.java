@@ -1,11 +1,12 @@
-package dev.lukebemish.flix.gradle;
+package dev.lukebemish.flix.gradle.dependencies;
 
-import dev.lukebemish.flix.gradle.dependencies.FpkgRepositoryLayer;
 import org.gradle.api.services.BuildService;
 import org.gradle.api.services.BuildServiceParameters;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.net.URI;
 
+@ApiStatus.Internal
 public abstract class RepositoryLayer implements BuildService<BuildServiceParameters.None>, AutoCloseable {
 
     private final FpkgRepositoryLayer.LayerServer layerServer;

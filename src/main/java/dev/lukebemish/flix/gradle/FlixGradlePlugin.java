@@ -1,5 +1,7 @@
 package dev.lukebemish.flix.gradle;
 
+import dev.lukebemish.flix.gradle.dependencies.RepositoryLayer;
+import dev.lukebemish.flix.gradle.dependencies.ResolutionSetup;
 import dev.lukebemish.flix.gradle.task.FlixToml;
 import dev.lukebemish.flix.gradle.task.Fpkg;
 import org.apache.commons.lang3.StringUtils;
@@ -163,7 +165,6 @@ public abstract class FlixGradlePlugin implements Plugin<Project> {
             flixToml.getDependencyArtifactIds().set(artifacts.map(it -> it.stream().map(i -> i.getModule().getId()).toList()));
             flixToml.getDependencyArtifactsAreFpkg().set(artifacts.map(it -> it.stream().map(i -> i.getModuleArtifacts().stream().anyMatch(ar -> ar.getFile().getName().endsWith(".fpkg"))).toList()));
             flixToml.dependsOn(flixClasspath);
-            flixToml.getPackageName().convention(flixExtension.getFlixProjectName());
             flixToml.getDestinationFile().set(basePluginExtension.getLibsDirectory().file("flix.toml"));
         });
 
@@ -175,7 +176,7 @@ public abstract class FlixGradlePlugin implements Plugin<Project> {
             fpkg.from(flixTomlTask.get().getDestinationFile());
             fpkg.setGroup("Build");
             fpkg.setDescription("Builds a Flix package");
-            fpkg.getArchiveFileName().set(flixExtension.getFlixProjectName().map(name -> name + ".fpkg"));
+            fpkg.getArchiveFileName().set(basePluginExtension.getArchivesName().map(name -> name + ".fpkg"));
             fpkg.getDestinationDirectory().set(basePluginExtension.getLibsDirectory());
         });
         project.getTasks().getByName("assemble").dependsOn(fpkgTask);

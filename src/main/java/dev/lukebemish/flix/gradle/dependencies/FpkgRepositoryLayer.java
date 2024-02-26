@@ -1,6 +1,7 @@
 package dev.lukebemish.flix.gradle.dependencies;
 
 import com.sun.net.httpserver.HttpServer;
+import org.jetbrains.annotations.ApiStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +13,7 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@ApiStatus.Internal
 public final class FpkgRepositoryLayer {
     static final Logger LOGGER = LoggerFactory.getLogger(FpkgRepositoryLayer.class);
 

@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import groovy.json.JsonOutput;
 import groovy.json.StringEscapeUtils;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@ApiStatus.Internal
 public class ArtifactHandler implements HttpHandler {
 
     @Override

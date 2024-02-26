@@ -1,5 +1,8 @@
 package dev.lukebemish.flix.gradle;
 
+import org.jetbrains.annotations.ApiStatus;
+
+@ApiStatus.Internal
 public class Util {
     public static String wordsToCamelCase(String input) {
         var words = input.split("\\W+");

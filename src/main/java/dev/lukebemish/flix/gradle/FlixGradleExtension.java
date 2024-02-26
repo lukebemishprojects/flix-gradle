@@ -15,7 +15,6 @@ import org.gradle.api.attributes.java.TargetJvmVersion;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.model.ObjectFactory;
-import org.gradle.api.plugins.BasePluginExtension;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Property;
@@ -27,7 +26,6 @@ import javax.inject.Inject;
 import java.util.Map;
 
 public abstract class FlixGradleExtension {
-    public abstract Property<String> getFlixProjectName();
     public abstract Property<Boolean> getSkipRuntimeElements();
     public abstract Property<Boolean> getSkipApiElements();
 
@@ -41,10 +39,12 @@ public abstract class FlixGradleExtension {
     public FlixGradleExtension(Project project, ObjectFactory objectFactory) {
         this.objectFactory = objectFactory;
         this.project = project;
-        BasePluginExtension basePluginExtension = project.getExtensions().getByType(BasePluginExtension.class);
-        getFlixProjectName().convention(basePluginExtension.getArchivesName());
+
         this.getSkipRuntimeElements().convention(project.provider(() -> !isApplication));
         this.getSkipApiElements().convention(true);
+
+        getSkipRuntimeElements().finalizeValueOnRead();
+        getSkipApiElements().finalizeValueOnRead();
     }
 
     @Nested
@@ -135,11 +135,11 @@ public abstract class FlixGradleExtension {
         Configuration runtimeElements = project.getConfigurations().getByName(JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME);
         runtimeElements.extendsFrom(project.getConfigurations().getByName("flixRuntimeClasspath"));
 
-        project.getTasks().named(JavaPlugin.JAR_TASK_NAME, Jar.class, jar -> {
-            jar.manifest(manifest -> {
-                manifest.getAttributes().put("Main-Class", "Main");
-            });
-        });
+        project.getTasks().named(JavaPlugin.JAR_TASK_NAME, Jar.class, jar ->
+            jar.manifest(manifest ->
+                manifest.getAttributes().put("Main-Class", "Main")
+            )
+        );
 
         var main = sourceSets.getByName("main");
         var flixSource = (SourceDirectorySet) main.getExtensions().getByName("flix");

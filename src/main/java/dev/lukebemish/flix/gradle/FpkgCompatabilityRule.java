@@ -1,10 +1,12 @@
 package dev.lukebemish.flix.gradle;
 
 import org.gradle.api.attributes.*;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
 
+@ApiStatus.Internal
 public class FpkgCompatabilityRule implements AttributeCompatibilityRule<LibraryElements> {
     private static final Set<String> FLIX_CLASSES = Set.of(FlixGradlePlugin.FPKG_ELEMENT, LibraryElements.JAR);
 

@@ -6,7 +6,7 @@ plugins {
 group='dev.lukebemish.flix-gradle'
 version='1.0.0'
 
-java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 
 repositories {
     mavenCentral()
@@ -15,7 +15,7 @@ repositories {
 flix.application()
 
 dependencies {
-    flix 'dev.flix:flix:0.42.0'
+    flix 'dev.flix:flix:0.44.0'
     flix 'github:flix/museum:1.4.0'
 }
 

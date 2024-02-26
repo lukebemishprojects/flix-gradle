@@ -3,7 +3,8 @@ package dev.lukebemish.flix.gradle.wrapper;
 import ca.uwaterloo.flix.api.Flix;
 import ca.uwaterloo.flix.language.CompilationMessage;
 import ca.uwaterloo.flix.runtime.CompilationResult;
-import ca.uwaterloo.flix.util.Validation;
+import ca.uwaterloo.flix.util.Result;
+import ca.uwaterloo.flix.util.collection.Chain;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -66,7 +67,8 @@ public final class Wrapper {
 
     private static CompilationResult compile(Flix flix) {
         var validation = flix.compile();
-        if (!(validation instanceof Validation.Success<CompilationResult, CompilationMessage> success)) {
+        validation.unsafeGet();
+        if (!(validation.toHardResult() instanceof Result.Ok<CompilationResult, Chain<CompilationMessage>> success)) {
             scala.collection.Iterable<String> list = flix.mkMessages(validation.toHardFailure().errors());
             while (!list.isEmpty()) {
                 System.err.println(list.head());

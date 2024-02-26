@@ -31,17 +31,11 @@ class FlixOptions {
         }
         String jvmTarget = properties.getProperty("jvmTarget");
         switch (jvmTarget) {
-            case "6" -> this.jvmTarget = JvmTarget.Version16$.MODULE$;
-            case "7" -> this.jvmTarget = JvmTarget.Version17$.MODULE$;
-            case "8" -> this.jvmTarget = JvmTarget.Version18$.MODULE$;
-            case "9" -> this.jvmTarget = JvmTarget.Version19$.MODULE$;
+            case "21" -> this.jvmTarget = JvmTarget.Version21$.MODULE$;
             default -> {
                 try {
                     int version = Integer.parseInt(jvmTarget);
-                    if (version > 9) {
-                        // silently fail to set jvmTarget - which seems to be necessary to generate bytecode on java 10+
-                        this.jvmTarget = null;
-                    }
+                    throw new IllegalArgumentException("Unsupported jvmTarget: " + version);
                 } catch (NumberFormatException e) {
                     throw new RuntimeException("Invalid jvmTarget: " + jvmTarget);
                 }
